@@ -1,0 +1,45 @@
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root_pass
+      MYSQL_DATABASE: mrvs
+      MYSQL_USER: mrvs
+      MYSQL_PASSWORD: mrvs_pass
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-proot_pass"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      APP_PORT: "8080"
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_USER: mrvs
+      DB_PASSWORD: mrvs_pass
+      DB_NAME: mrvs
+      COMPLIANCE_MIN_DURATION_SECONDS: "300"
+      COMPLIANCE_MAX_DISTANCE_METERS: "500"
+      ALLOW_TIME_OVERRIDE: "false"
+      AUTO_MIGRATE: "true"
+      SEED_DATA: "true"
+      LOG_LEVEL: info
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
