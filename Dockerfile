@@ -1,4 +1,14 @@
-FROM golang:1.21-alpine AS builder
+FROM node:22-alpine AS frontend-builder
+
+WORKDIR /app
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+
+COPY frontend/ ./
+RUN npm run build
+
+FROM golang:1.21-alpine AS backend-builder
 
 WORKDIR /src
 
@@ -6,6 +16,7 @@ COPY backend/go.mod backend/go.sum ./backend/
 RUN cd backend && go mod download
 
 COPY backend ./backend
+COPY --from=frontend-builder /app/dist ./backend/internal/web/dist
 RUN cd backend && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server
 
 FROM alpine:3.19
@@ -13,7 +24,7 @@ FROM alpine:3.19
 RUN apk add --no-cache ca-certificates tzdata
 
 WORKDIR /app
-COPY --from=builder /out/server /app/server
+COPY --from=backend-builder /out/server /app/server
 
 ENV APP_PORT=8080
 EXPOSE 8080

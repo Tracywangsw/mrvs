@@ -8,6 +8,7 @@ import (
 	"github.com/mrvs/backend/internal/handler"
 	"github.com/mrvs/backend/internal/middleware"
 	"github.com/mrvs/backend/internal/service"
+	"github.com/mrvs/backend/internal/web"
 )
 
 // New 构造带中间件与全部路由的 Hertz 实例。
@@ -39,6 +40,11 @@ func New(svc service.Service, log *slog.Logger, opts ...config.Option) *server.H
 	api.GET("/meta/hospitals", h.MetaHospitals)
 	api.GET("/meta/hcps", h.MetaHCPs)
 	api.GET("/meta/products", h.MetaProducts)
+
+	// 生产镜像中前端静态资源被打包进二进制，未命中路由时回退到 index.html。
+	if static, ok := web.Handler(); ok {
+		hz.NoRoute(static)
+	}
 
 	return hz
 }

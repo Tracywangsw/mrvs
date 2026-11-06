@@ -1,0 +1,1 @@
+.dashboard-grid[data-v-e6525264]{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:18px;align-items:start}.dashboard-note[data-v-e6525264]{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);font-size:11.5px;line-height:1.6;color:var(--muted)}@media (max-width: 1180px){.dashboard-grid[data-v-e6525264]{grid-template-columns:1fr}}
