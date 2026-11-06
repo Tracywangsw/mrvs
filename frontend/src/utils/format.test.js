@@ -7,8 +7,6 @@ import {
   formatDuration,
   formatMeters,
   formatPercent,
-  offsetLatitude,
-  reasonTitle,
   statusMeta,
   toApiTime,
 } from './format'
@@ -61,7 +59,7 @@ describe('formatMeters / formatPercent', () => {
   })
 })
 
-describe('statusMeta / abnormalLabel / reasonTitle', () => {
+describe('statusMeta / abnormalLabel', () => {
   it('状态文案', () => {
     expect(statusMeta('reported').label).toBe('已提交记录')
     expect(statusMeta('planned').tone).toBe('planned')
@@ -72,12 +70,6 @@ describe('statusMeta / abnormalLabel / reasonTitle', () => {
     expect(abnormalLabel(null)).toBe('待判定')
     expect(abnormalLabel(false)).toBe('正常')
     expect(abnormalLabel(true)).toBe('异常')
-  })
-
-  it('异常原因标题', () => {
-    expect(reasonTitle('SHORT_DURATION')).toBe('停留时长不足')
-    expect(reasonTitle('LOCATION_DEVIATION')).toBe('地点偏离医院')
-    expect(reasonTitle('CUSTOM')).toBe('CUSTOM')
   })
 })
 
@@ -97,14 +89,9 @@ describe('toApiTime', () => {
   })
 })
 
-describe('currentMonth / offsetLatitude', () => {
+describe('currentMonth', () => {
   it('当前月份格式为 YYYY-MM', () => {
     expect(currentMonth()).toMatch(/^\d{4}-\d{2}$/)
-  })
-
-  it('按米偏移纬度', () => {
-    expect(offsetLatitude(31.2304, 600)).toBeGreaterThan(31.2304)
-    expect(offsetLatitude(31.2304, 600) - 31.2304).toBeCloseTo(0.0054, 4)
   })
 })
 

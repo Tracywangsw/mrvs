@@ -229,9 +229,8 @@ onMounted(() => {
           <div class="hint-box">
             <el-icon style="font-size: 18px; margin-top: 1px"><CircleCheck /></el-icon>
             <div>
-              <strong>合规提示：</strong>
-              签到、签退时需手动输入 GPS 坐标。签退后系统将自动计算停留时长与距医院距离，
-              停留不足 300 秒或偏离 500 米以上将被标记为异常。
+              <strong>操作提示：</strong>
+              签到、签退时需手动输入 GPS 坐标，请如实记录拜访时间与地点。
             </div>
           </div>
 

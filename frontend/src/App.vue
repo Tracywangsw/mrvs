@@ -1,13 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
 import { Calendar, Plus, TrendCharts } from '@element-plus/icons-vue'
-import { checkHealth } from './api'
-
-const health = ref(null)
-
-onMounted(async () => {
-  health.value = await checkHealth()
-})
 </script>
 
 <template>
@@ -48,28 +40,6 @@ onMounted(async () => {
           <span>产品月度看板</span>
         </router-link>
       </nav>
-
-      <div class="sidebar-foot">
-        <div
-          class="health"
-          :class="health === null ? '' : health ? 'online' : 'offline'"
-        >
-          <span class="dot"></span>
-          <span>
-            {{
-              health === null
-                ? '正在检测后端服务…'
-                : health
-                  ? '后端服务在线'
-                  : '后端服务离线'
-            }}
-          </span>
-        </div>
-        <p class="foot-note">
-          合规阈值 300 秒 / 500 米<br />
-          时间统一按 Asia/Shanghai 展示
-        </p>
-      </div>
     </aside>
 
     <main class="main">

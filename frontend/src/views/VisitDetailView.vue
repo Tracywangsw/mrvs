@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, CircleCheck, CircleClose, Location, Refresh, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowLeft, Location, Refresh } from '@element-plus/icons-vue'
 import {
   cancelVisit,
   checkInVisit,
@@ -10,18 +10,7 @@ import {
   fetchVisit,
   submitVisitReport,
 } from '../api'
-import {
-  abnormalLabel,
-  abnormalTone,
-  formatCoordinate,
-  formatDateTime,
-  formatDuration,
-  formatMeters,
-  offsetLatitude,
-  reasonTitle,
-  statusMeta,
-  toApiTime,
-} from '../utils/format'
+import { formatCoordinate, formatDateTime, formatDuration, statusMeta } from '../utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -35,8 +24,6 @@ const cancelling = ref(false)
 const checkForm = reactive({
   latitude: null,
   longitude: null,
-  useCustomTime: false,
-  occurredAt: '',
 })
 
 const reportForm = reactive({
@@ -75,7 +62,7 @@ const timeline = computed(() => {
     items.push({
       title: '现场签到',
       time: formatDateTime(detail.checkin.at),
-      desc: `坐标 ${formatCoordinate(detail.checkin.latitude)}, ${formatCoordinate(detail.checkin.longitude)} · 距医院 ${formatMeters(detail.checkin.distance_meters)}`,
+      desc: `坐标 ${formatCoordinate(detail.checkin.latitude)}, ${formatCoordinate(detail.checkin.longitude)}`,
       tone: '',
     })
   }
@@ -83,7 +70,7 @@ const timeline = computed(() => {
     items.push({
       title: '拜访签退',
       time: formatDateTime(detail.checkout.at),
-      desc: `停留 ${formatDuration(detail.duration_seconds)} · 坐标 ${formatCoordinate(detail.checkout.latitude)}, ${formatCoordinate(detail.checkout.longitude)} · 距医院 ${formatMeters(detail.checkout.distance_meters)}`,
+      desc: `坐标 ${formatCoordinate(detail.checkout.latitude)}, ${formatCoordinate(detail.checkout.longitude)} · 停留 ${formatDuration(detail.duration_seconds)}`,
       tone: '',
     })
   }
@@ -106,16 +93,9 @@ const timeline = computed(() => {
   return items
 })
 
-const resultTone = computed(() => {
-  if (!visit.value) return 'pending'
-  return abnormalTone(visit.value.is_abnormal)
-})
-
 function resetCheckForm() {
   checkForm.latitude = null
   checkForm.longitude = null
-  checkForm.useCustomTime = false
-  checkForm.occurredAt = ''
 }
 
 function syncReportForm(detail) {
@@ -151,13 +131,6 @@ function fillHospitalCoords() {
   checkForm.longitude = Number(visit.value.hospital.longitude)
 }
 
-function fillOffset(meters) {
-  if (!visit.value) return
-  checkForm.latitude = offsetLatitude(visit.value.hospital.latitude, meters)
-  checkForm.longitude = Number(visit.value.hospital.longitude)
-  ElMessage.info(`已填入距医院约 ${meters} 米的坐标，可用于演示异常判定`)
-}
-
 function validateCoordinates() {
   const latitude = Number(checkForm.latitude)
   const longitude = Number(checkForm.longitude)
@@ -173,15 +146,7 @@ function validateCoordinates() {
     ElMessage.warning('经度必须在 -180 至 180 之间')
     return null
   }
-  const payload = { latitude, longitude }
-  if (checkForm.useCustomTime) {
-    if (!checkForm.occurredAt) {
-      ElMessage.warning('已选择指定演示时间，请填写时间')
-      return null
-    }
-    payload.occurred_at = toApiTime(checkForm.occurredAt)
-  }
-  return payload
+  return { latitude, longitude }
 }
 
 async function handleCheckIn() {
@@ -210,11 +175,7 @@ async function handleCheckOut() {
     visit.value = detail
     syncReportForm(detail)
     resetCheckForm()
-    if (detail.is_abnormal) {
-      ElMessage.warning(`签退完成，但命中 ${detail.abnormal_reasons?.length || 0} 条异常规则`)
-    } else {
-      ElMessage.success('签退完成，当前拜访合规正常')
-    }
+    ElMessage.success('签退完成')
   } catch (error) {
     ElMessage.error(error.message)
   } finally {
@@ -265,7 +226,6 @@ async function handleSubmitReport() {
   }
 
   submittingReport.value = true
-  const wasReported = visit.value.status === 'reported'
   try {
     const detail = await submitVisitReport(visit.value.id, {
       talking_points: talkingPoints,
@@ -276,7 +236,7 @@ async function handleSubmitReport() {
     })
     visit.value = detail
     syncReportForm(detail)
-    ElMessage.success(wasReported ? '拜访记录已更新' : '拜访记录已提交')
+    ElMessage.success('拜访记录已提交')
   } catch (error) {
     ElMessage.error(error.message)
   } finally {
@@ -366,7 +326,7 @@ onMounted(load)
             <div class="info-value">{{ formatDateTime(visit.planned_at) }}</div>
           </div>
           <div class="info-item">
-            <div class="info-label">医院合规基准坐标</div>
+            <div class="info-label">医院坐标</div>
             <div class="info-value mono" style="font-size: 12.5px">
               {{ formatCoordinate(visit.hospital.latitude) }},
               {{ formatCoordinate(visit.hospital.longitude) }}
@@ -389,75 +349,18 @@ onMounted(load)
         <div class="stack-col">
           <section class="panel panel--pad">
             <div class="panel-head">
-              <h2 class="panel-title">合规校验</h2>
-              <span class="panel-hint">签退时固化结果，后续不重算</span>
-            </div>
-
-            <div class="result-banner" :class="resultTone">
-              <div class="result-icon">
-                <el-icon v-if="resultTone === 'normal'"><CircleCheck /></el-icon>
-                <el-icon v-else-if="resultTone === 'abnormal'"><CircleClose /></el-icon>
-                <el-icon v-else><WarningFilled /></el-icon>
-              </div>
-              <div>
-                <div class="result-title">
-                  {{
-                    resultTone === 'pending'
-                      ? '等待签退后判定'
-                      : resultTone === 'normal'
-                        ? '合规校验通过'
-                        : `命中 ${visit.abnormal_reasons.length} 条异常规则`
-                  }}
-                </div>
-                <div class="result-sub">
-                  <template v-if="resultTone === 'pending'">
-                    签到完成后执行签退，系统将自动计算停留时长与位置偏离。
-                  </template>
-                  <template v-else>
-                    停留 {{ formatDuration(visit.duration_seconds) }} · 最大偏离
-                    {{ formatMeters(visit.deviation_meters) }}
-                  </template>
-                </div>
-              </div>
-            </div>
-
-            <div v-if="visit.abnormal_reasons?.length" class="reason-list">
-              <div v-for="reason in visit.abnormal_reasons" :key="reason.code" class="reason">
-                <div class="reason-code">{{ reason.code }}</div>
-                <div class="reason-body">
-                  <strong>{{ reasonTitle(reason.code) }}：</strong>{{ reason.message }}
-                </div>
-              </div>
-            </div>
-
-            <div class="stat-row" style="margin-top: 16px">
-              <div class="stat">
-                <div class="stat-label">停留时长</div>
-                <div class="stat-value">{{ formatDuration(visit.duration_seconds) }}</div>
-              </div>
-              <div class="stat">
-                <div class="stat-label">最大偏离</div>
-                <div class="stat-value">{{ formatMeters(visit.deviation_meters) }}</div>
-              </div>
-              <div class="stat">
-                <div class="stat-label">签到距离</div>
-                <div class="stat-value">
-                  {{ formatMeters(visit.checkin?.distance_meters) }}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="panel panel--pad">
-            <div class="panel-head">
               <h2 class="panel-title">{{ isReported ? '拜访记录（已提交）' : '拜访记录' }}</h2>
               <span v-if="visit.report?.report_submitted_at" class="panel-hint">
-                首次提交 {{ formatDateTime(visit.report.report_submitted_at) }}
+                {{
+                  isReported
+                    ? '已提交，内容不可修改'
+                    : `首次提交 ${formatDateTime(visit.report.report_submitted_at)}`
+                }}
               </span>
             </div>
 
             <template v-if="canReport">
-              <el-form label-position="top">
+              <el-form label-position="top" class="report-form">
                 <el-form-item label="谈话要点" required>
                   <el-input
                     v-model="reportForm.talking_points"
@@ -465,6 +368,7 @@ onMounted(load)
                     :rows="4"
                     maxlength="5000"
                     show-word-limit
+                    :readonly="isReported"
                     placeholder="记录与医生沟通的产品学术信息、临床数据要点"
                   />
                 </el-form-item>
@@ -477,6 +381,7 @@ onMounted(load)
                       :rows="3"
                       maxlength="5000"
                       show-word-limit
+                      :readonly="isReported"
                       placeholder="医生对产品的认可、疑虑或临床反馈"
                     />
                   </el-form-item>
@@ -487,6 +392,7 @@ onMounted(load)
                       :rows="3"
                       maxlength="5000"
                       show-word-limit
+                      :readonly="isReported"
                       placeholder="下一步跟进安排"
                     />
                   </el-form-item>
@@ -497,6 +403,7 @@ onMounted(load)
                     v-model="reportForm.materials_distributed"
                     active-text="已派发"
                     inactive-text="未派发"
+                    :disabled="isReported"
                   />
                 </el-form-item>
 
@@ -516,9 +423,10 @@ onMounted(load)
                       <el-input
                         v-model="material.material_name"
                         maxlength="128"
+                        :readonly="isReported"
                         placeholder="如：产品临床数据手册"
                       />
-                      <el-select v-model="material.material_type">
+                      <el-select v-model="material.material_type" :disabled="isReported">
                         <el-option
                           v-for="type in materialTypes"
                           :key="type.value"
@@ -531,21 +439,37 @@ onMounted(load)
                         :min="1"
                         :max="1000"
                         :controls="false"
+                        :disabled="isReported"
                       />
-                      <el-button link type="danger" @click="removeMaterial(index)">移除</el-button>
+                      <el-button
+                        v-if="!isReported"
+                        link
+                        type="danger"
+                        @click="removeMaterial(index)"
+                      >
+                        移除
+                      </el-button>
                     </div>
                   </div>
                   <div v-else class="material-empty">尚未添加资料明细</div>
-                  <el-button size="small" plain @click="addMaterial">+ 添加资料</el-button>
+                  <el-button
+                    size="small"
+                    plain
+                    :disabled="isReported"
+                    @click="addMaterial"
+                  >
+                    + 添加资料
+                  </el-button>
                 </template>
 
                 <div class="form-actions">
                   <el-button
                     type="primary"
                     :loading="submittingReport"
+                    :disabled="isReported"
                     @click="handleSubmitReport"
                   >
-                    {{ isReported ? '更新拜访记录' : '提交拜访记录' }}
+                    提交拜访记录
                   </el-button>
                 </div>
               </el-form>
@@ -570,7 +494,7 @@ onMounted(load)
 
             <template v-if="visit.status === 'planned'">
               <div class="action-heading">现场签到</div>
-              <p class="action-sub">手动输入签到 GPS 坐标，系统计算距医院距离。</p>
+              <p class="action-sub">手动输入签到 GPS 坐标，确认已到达拜访地点。</p>
               <div class="coord-grid">
                 <el-input-number
                   v-model="checkForm.latitude"
@@ -587,19 +511,6 @@ onMounted(load)
               </div>
               <div class="coord-actions">
                 <el-button size="small" plain @click="fillHospitalCoords">填入医院坐标</el-button>
-                <el-button size="small" plain @click="fillOffset(650)">模拟偏离 650 米</el-button>
-              </div>
-              <div class="demo-time">
-                <el-checkbox v-model="checkForm.useCustomTime">指定演示时间</el-checkbox>
-                <el-date-picker
-                  v-if="checkForm.useCustomTime"
-                  v-model="checkForm.occurredAt"
-                  type="datetime"
-                  value-format="YYYY-MM-DDTHH:mm:ss"
-                  placeholder="仅后端开启演示开关时生效"
-                  size="small"
-                  style="width: 100%"
-                />
               </div>
               <el-button
                 type="primary"
@@ -622,7 +533,7 @@ onMounted(load)
 
             <template v-else-if="visit.status === 'checked_in'">
               <div class="action-heading">拜访签退</div>
-              <p class="action-sub">签退将计算停留时长、位置偏离并固化合规结果。</p>
+              <p class="action-sub">手动输入签退 GPS 坐标，确认本次拜访结束。</p>
               <div class="checkin-summary">
                 <div class="summary-row">
                   <span>签到时间</span>
@@ -634,10 +545,6 @@ onMounted(load)
                     {{ formatCoordinate(visit.checkin.latitude) }},
                     {{ formatCoordinate(visit.checkin.longitude) }}
                   </strong>
-                </div>
-                <div class="summary-row">
-                  <span>距医院</span>
-                  <strong>{{ formatMeters(visit.checkin.distance_meters) }}</strong>
                 </div>
               </div>
               <div class="coord-grid">
@@ -656,19 +563,6 @@ onMounted(load)
               </div>
               <div class="coord-actions">
                 <el-button size="small" plain @click="fillHospitalCoords">填入医院坐标</el-button>
-                <el-button size="small" plain @click="fillOffset(650)">模拟偏离 650 米</el-button>
-              </div>
-              <div class="demo-time">
-                <el-checkbox v-model="checkForm.useCustomTime">指定演示时间</el-checkbox>
-                <el-date-picker
-                  v-if="checkForm.useCustomTime"
-                  v-model="checkForm.occurredAt"
-                  type="datetime"
-                  value-format="YYYY-MM-DDTHH:mm:ss"
-                  placeholder="仅后端开启演示开关时生效"
-                  size="small"
-                  style="width: 100%"
-                />
               </div>
               <el-button
                 type="primary"
@@ -683,37 +577,17 @@ onMounted(load)
             <template v-else-if="visit.status === 'checked_out'">
               <div class="action-heading">等待提交拜访记录</div>
               <p class="action-sub">
-                合规结果已固化。请在左侧填写谈话要点与医生反馈，完成本次拜访闭环。
+                已完成签退，请在左侧填写谈话要点与医生反馈，完成本次拜访闭环。
               </p>
-              <div class="result-banner" :class="resultTone" style="padding: 12px 14px">
-                <div class="result-icon" style="width: 32px; height: 32px; flex-basis: 32px">
-                  <el-icon v-if="resultTone === 'normal'"><CircleCheck /></el-icon>
-                  <el-icon v-else><CircleClose /></el-icon>
-                </div>
-                <div>
-                  <div class="result-title" style="font-size: 13.5px">
-                    {{ abnormalLabel(visit.is_abnormal) }}
-                  </div>
-                  <div class="result-sub" style="font-size: 12px">
-                    停留 {{ formatDuration(visit.duration_seconds) }}
-                  </div>
-                </div>
-              </div>
             </template>
 
             <template v-else-if="visit.status === 'reported'">
               <div class="action-heading">拜访已完成</div>
-              <p class="action-sub">
-                记录已提交，可继续在左侧更新谈话要点、医生反馈与资料明细。
-              </p>
+              <p class="action-sub">记录已提交，内容不可修改。</p>
               <div class="checkin-summary">
                 <div class="summary-row">
                   <span>提交时间</span>
                   <strong>{{ formatDateTime(visit.report.report_submitted_at) }}</strong>
-                </div>
-                <div class="summary-row">
-                  <span>合规结果</span>
-                  <strong>{{ abnormalLabel(visit.is_abnormal) }}</strong>
                 </div>
               </div>
             </template>
@@ -787,13 +661,6 @@ onMounted(load)
   flex-wrap: wrap;
 }
 
-.demo-time {
-  margin: 14px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
 .checkin-summary {
   display: flex;
   flex-direction: column;
@@ -853,5 +720,10 @@ onMounted(load)
 
 .material-row :deep(.el-input-number) {
   width: 100%;
+}
+
+.report-form :deep(.el-textarea__inner[readonly]) {
+  background: #f5f7f7;
+  color: var(--ink);
 }
 </style>

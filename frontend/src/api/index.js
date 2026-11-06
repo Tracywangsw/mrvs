@@ -47,12 +47,3 @@ export function cancelVisit(id, reason) {
 export function fetchDashboard(params) {
   return http.get('/dashboard/products', params)
 }
-
-export async function checkHealth() {
-  try {
-    const response = await fetch('/healthz')
-    return response.ok
-  } catch {
-    return false
-  }
-}

@@ -97,15 +97,6 @@ export function abnormalTone(value) {
   return value ? 'abnormal' : 'normal'
 }
 
-export const REASON_TITLE = {
-  SHORT_DURATION: '停留时长不足',
-  LOCATION_DEVIATION: '地点偏离医院',
-}
-
-export function reasonTitle(code) {
-  return REASON_TITLE[code] || code || '异常原因'
-}
-
 /**
  * 将日期选择器的本地值转换为后端要求的 RFC3339（Asia/Shanghai 偏移）。
  * 支持 YYYY-MM-DDTHH:mm、YYYY-MM-DDTHH:mm:ss 与 Date。
@@ -134,16 +125,6 @@ export function monthLabel(month) {
   if (!month || !/^\d{4}-\d{2}$/.test(month)) return '—'
   const [year, monthNumber] = month.split('-')
   return `${year} 年 ${Number(monthNumber)} 月`
-}
-
-const METERS_PER_LATITUDE_DEGREE = 111194.93
-
-/** 以给定米数向北偏移纬度，用于演示合规/异常坐标。 */
-export function offsetLatitude(latitude, meters) {
-  if (latitude === null || latitude === undefined) return null
-  const value = Number(latitude)
-  if (!Number.isFinite(value)) return null
-  return Number((value + Number(meters) / METERS_PER_LATITUDE_DEGREE).toFixed(6))
 }
 
 export function formatCoordinate(value) {

@@ -1,18 +1,22 @@
 services:
   mysql:
     image: mysql:8.0
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root_pass
-      MYSQL_DATABASE: mrvs
-      MYSQL_USER: mrvs
-      MYSQL_PASSWORD: mrvs_pass
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_pass}
+      MYSQL_DATABASE: ${DB_NAME:-mrvs}
+      MYSQL_USER: ${DB_USER:-mrvs}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-mrvs_pass}
+      TZ: Asia/Shanghai
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_0900_ai_ci
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-proot_pass"]
+      test:
+        - CMD-SHELL
+        - mysqladmin ping -h 127.0.0.1 -u root -p"$${MYSQL_ROOT_PASSWORD}"
       interval: 5s
       timeout: 3s
       retries: 20
@@ -22,21 +26,24 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: mrvs-app:latest
+    restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "${HOST_PORT:-8080}:8080"
     environment:
       APP_PORT: "8080"
       DB_HOST: mysql
       DB_PORT: "3306"
-      DB_USER: mrvs
-      DB_PASSWORD: mrvs_pass
-      DB_NAME: mrvs
-      COMPLIANCE_MIN_DURATION_SECONDS: "300"
-      COMPLIANCE_MAX_DISTANCE_METERS: "500"
-      ALLOW_TIME_OVERRIDE: "false"
+      DB_USER: ${DB_USER:-mrvs}
+      DB_PASSWORD: ${DB_PASSWORD:-mrvs_pass}
+      DB_NAME: ${DB_NAME:-mrvs}
+      COMPLIANCE_MIN_DURATION_SECONDS: ${COMPLIANCE_MIN_DURATION_SECONDS:-300}
+      COMPLIANCE_MAX_DISTANCE_METERS: ${COMPLIANCE_MAX_DISTANCE_METERS:-500}
+      ALLOW_TIME_OVERRIDE: ${ALLOW_TIME_OVERRIDE:-false}
       AUTO_MIGRATE: "true"
       SEED_DATA: "true"
-      LOG_LEVEL: info
+      TZ: Asia/Shanghai
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       mysql:
         condition: service_healthy
