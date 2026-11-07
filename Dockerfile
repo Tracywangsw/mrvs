@@ -10,6 +10,11 @@ RUN npm run build
 
 FROM golang:1.21-alpine AS backend-builder
 
+# 默认走国内代理，避免 proxy.golang.org 网络不可达导致 go mod download 超时。
+# 可通过 docker-compose.yaml 的 build.args.GOPROXY 覆盖。
+ARG GOPROXY=https://goproxy.cn,direct
+ENV GOPROXY=${GOPROXY}
+
 WORKDIR /src
 
 COPY backend/go.mod backend/go.sum ./backend/
